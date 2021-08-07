@@ -6,50 +6,66 @@ const bcrypt = require('bcrypt');
 
 app.set("view engine", "ejs");
 
-const users = {
+let users = {
   "userRandomID": {
     id: "userRandomID",
     email: "user@example.com",
-    password: "purple-monkey-dinosaur"
+    password: bcrypt.hashSync("purple-monkey-dinosaur",10)
   },
   "user2RandomID": {
     id: "user2RandomID",
     email: "user2@example.com",
-    password: "dishwasher-funk"
+    password: bcrypt.hashSync("dishwasher-funk",10)
   }
 };
 
-
-const urlDatabase = {
-  "b2xVn2": "http://www.lighthouselabs.ca",
-  "9sm5xK": "http://www.google.com"
+let urlDatabase = {
+  "b2xVn2": {
+    longURL:"http://www.lighthouselabs.ca",
+    userID: "userRandomID"
+  },
+  "9sm5xK": {
+    longURL: "http://www.google.com",
+    userID: "user2RandomID"
+  }
 };
 
 const bodyParser = require("body-parser");
+const getUserByEmail = require("./helpers");
 app.use(bodyParser.urlencoded({extended: true}));
-app.use(cookieSession({   name: 'session',
-  keys: ['key1', 'key2'] }));
-
-
+app.use(cookieSession({ name: 'session', keys: ['key1', 'key2'] }));
 
 app.get("/", (req, res) => {
   res.send("Hello!");
 });
 
-// app.get("/urls/:id", ...
-
 app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
 
+const urlsForUser = function(id) {
+  let filteredURLS = {};
+
+  for (let i in urlDatabase) {
+    if (urlDatabase[i].userID === id) {
+      filteredURLS[i] = urlDatabase[i].longURL;
+    }
+  }
+
+  return filteredURLS;
+};
+
 app.get("/urls", (req, res) => {
   const userid = req.session.user_id;
   const user = users[userid];
-  const templateVars = { urls: urlDatabase, user, userid };
-  res.render("urls_index", templateVars);
+
+  if (user) {
+    const templateVars = { urls: urlsForUser(userid), user, userid };
+    res.render("urls_index", templateVars);
+  } else {
+    res.redirect("/login");
+  }
 });
-
-
 
 app.get("/set", (req, res) => {
   const a = 1;
@@ -57,6 +73,7 @@ app.get("/set", (req, res) => {
 });
  
 app.get("/fetch", (req, res) => {
+  const a = 1;
   res.send(`a = ${a}`);
 });
 
@@ -65,32 +82,49 @@ app.get("/hello", (req, res) => {
 });
 
 app.get("/urls/new", (req, res) => {
+  
   const userid = req.session.user_id;
   const user = users[userid];
-  const templateVars = { username: req.session ? req.session["username"] : "", user, userid};
-  res.render("urls_new", templateVars);
+  
+  if (user) {
+    const templateVars = { username: req.session ? req.session["username"] : "", user, userid};
+    res.render("urls_new", templateVars);
+  } else {
+    res.redirect("/login");
+  }
+
 });
 
 app.post("/urls", (req, res) => {
-  console.log(req.body);  // Log the POST request body to the console
-  res.send(generateRandomString());         // Respond with 'Ok' (we will replace this)
+  const userid = req.session.user_id;
+  const user = users[userid];
+
+  if (user) {
+    let shortURL = generateRandomString();
+    
+    urlDatabase[shortURL] = {
+      longURL: req.body.longURL,
+      userID: userid
+    };
+
+    res.redirect("/urls/" + shortURL);
+  } else {
+    res.send("Error not logged in!");
+  }
 });
 
 app.post("/register",(req,res) => {
   
   const userid = generateRandomString();
-  
-  console.log(req.body);
   const email = req.body.email;
   const password = bcrypt.hashSync(req.body.password,10);
-  console.log(email,password);
+
   if (email === "" || password === "") {
     res.status(400).send('Type here');
-    
   }
 
-  const isemailuser = emailexist(email);
-  console.log(isemailuser);
+  const isemailuser = getUserByEmail(email, users);
+
   if (isemailuser) {
     if (isemailuser.email === email) {
       res.status(400).send('email exist');
@@ -101,58 +135,87 @@ app.post("/register",(req,res) => {
       email : email,
       password : password
     };
-    console.log(users);
-    
-    // res.cookie ('user_id' , userid)
-    console.log(email,password,userid);
-    //res.cookie('register', req.body.register);
-    res.redirect('/urls');
 
+    req.session.user_id = userid;
+    res.redirect('/urls');
   }
- 
-  
- 
 });
 
 app.post("/login",(req,res) => {
+
   const user = userexist(req.body.email, req.body.password);
-  // const lookedupuser = emailexist()
-  //res.cookie('username',req.body.username);
+
   if (user) {
-    req.session['user_id']= user.id;
+    req.session['user_id'] = user.id;
     res.redirect('/urls');
   } else {
     res.status(403).send('User not found');
-    
   }
-  
 });
 
 app.get("/login", (req,res) => {
   const userid = req.session.user_id;
+
   const user = users[userid];
-  const templateVars = { username: req.session ? req.session["username"] : "", user,userid};
-  res.render("urls_login", templateVars);
+  console.log('user: ', user);
+  if (user) {
+    res.redirect('/urls');
+  } else {
+    const templateVars = { username: req.session ? req.session["username"] : "", user,userid};
+    res.render("urls_login", templateVars);
+  }
+ 
 });
 
 app.post("/logout",(req,res) => {
-  req.session['user_id']= null;
-  //res.clearsession('user_id');
+  req.session['user_id'] = null;
   res.redirect('/urls');
 });
 
 app.post("/urls/:shortURL/delete",(req,res) => {
+  const userid = req.session.user_id;
+  const user = users[userid];
+  if (user) {
+    const urlsList = urlsForUser(userid);
+    if (urlsList[req.params.shortURL]) {
+      delete urlDatabase[req.params.shortURL];
+    }
 
-  delete urlDatabase[req.params.shortURL];
-  res.redirect('/urls');
+    res.redirect('/urls');
+  } else {
+    res.redirect("/login");
+  }
 });
-
 
 app.get("/urls/:shortURL", (req, res) => {
   const userid = req.session.user_id;
   const user = users[userid];
-  const templateVars = { username: req.session ? req.session["username"] : "", shortURL: req.params.shortURL, longURL: urlDatabase[req.params.shortURL],user, userid};
-  res.render("urls_show", templateVars);
+  if (user) {
+    const urlsList = urlsForUser(userid);
+    if (urlsList[req.params.shortURL]) {
+      const shortURL = req.params.shortURL;
+      const templateVars = {
+        username: req.session ? req.session["username"] : "",
+        shortURL: shortURL,
+        longURL: urlDatabase[shortURL].longURL,
+        user,
+        userid
+      };
+      res.render("urls_show", templateVars);
+    } else {
+      res.redirect("/urls");
+    }
+  } else {
+    res.redirect("/login");
+  }
+});
+
+app.get("/u/:shortURL", (req, res) => {
+  if (urlDatabase[req.params.shortURL]) {
+    res.redirect(urlDatabase[req.params.shortURL].longURL);
+  } else {
+    res.status(404).send('Long URL not found!');
+  }
 });
 
 app.listen(PORT, () => {
@@ -162,15 +225,20 @@ app.listen(PORT, () => {
 app.get("/register", (req, res) => {
   const userid = req.session.user_id;
   const user = users[userid];
-  const templateVars = { username: req.session ? req.session["username"] : "", user,userid};
-  res.render("urls_register", templateVars);
+  if (user) {
+    res.redirect('/urls');
+  } else {
+    const templateVars = { username: req.session ? req.session["username"] : "", user,userid};
+    res.render("urls_register", templateVars);
+  }
+ 
 });
 
-function generateRandomInteger(min,max) {
+const generateRandomInteger = function(min,max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+};
 
-function generateRandomString() {
+const generateRandomString = function() {
   let result = "";
   
   for (let i = 0; i < 6; i++) {
@@ -189,44 +257,18 @@ function generateRandomString() {
   }
   console.log(result);
   return result;
-}
+};
 
-function emailexist(inputemail) {
-  let result = null;
-  for (let i in users) {
-    let user  = users[i];// storing users index value into user
-    let storedemail = users.email;
-    if (inputemail === storedemail) {
-      result = user;
-
-    }
-
-  }
-
-  return result;
-}
-
-function userexist(inputemail,inputpassword) {
+const userexist = function(inputemail,inputpassword) {
   let result = null;
   for (let user in users) {
-    let currentuser  = users[user];// storing users index value into user
+    let currentuser = users[user];// storing users index value into user
     let storedemail = currentuser.email;
-    console.log(currentuser);
-    if (inputemail === storedemail) {
-      console.log(currentuser.password);
-      if (bcrypt.compareSync(inputpassword, currentuser.password)) {
-        // returns true)
-      //if (inputpassword === currentuser.password){
-        return currentuser;
-      }
-    
 
+    if (inputemail === storedemail && bcrypt.compareSync(inputpassword, currentuser.password)) {
+      return currentuser;
     }
-
   }
 
   return result;
-}
-
-
-
+};
