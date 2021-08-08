@@ -32,10 +32,6 @@ let urlDatabase = {
   }
 };
 
-/////HELPER FUNCTIONS///////
-
-
-
 ///////APP PREP///////
 app.set("view engine", "ejs");
 
@@ -45,7 +41,6 @@ app.use(cookieSession({ name: 'session', keys: ['key1', 'key2'] }));
 ///////APP GET ROUTES/////
 
 app.get("/", (req, res) => {
-  //res.send("Hello!");
   const userid = req.session.user_id;
   const user = users[userid];
 
@@ -82,7 +77,9 @@ app.get("/urls", (req, res) => {
     const templateVars = { urls: urlsForUser(userid, urlDatabase), user };
     res.render("urls_index", templateVars);
   } else {
-    res.status(401).send('Not logged in!');
+    const templateVars = { message: "not logged in! ", user : null};
+    res.status(401);
+    res.render("urls_error", templateVars);
   }
 });
 
@@ -104,7 +101,7 @@ app.get("/urls/:id", (req, res) => {
   const userid = req.session.user_id;
   const user = users[userid];
   if (user) {
-    if(urlDatabase[res.params.id]){
+    if(urlDatabase[req.params.id]){
       const urlsList = urlsForUser(userid, urlDatabase);
       if (urlsList[req.params.id]) {
         const shortURL = req.params.id;
@@ -117,13 +114,19 @@ app.get("/urls/:id", (req, res) => {
         };
         res.render("urls_show", templateVars);
       } else {
-        res.status(403).send('Not authorized to access this URL!');
+        const templateVars = { message: "Not authorized to access this URL!", user : null};
+    res.status(403);
+    res.render("urls_error", templateVars);
       }
     } else {
-      res.status(404).send('URL does not exist!');
+      const templateVars = { message: "URL does not exist!", user : null};
+      res.status(404);
+      res.render("urls_error", templateVars);
     }
   } else {
-    res.status(401).send('Not logged in!');
+    const templateVars = { message: "not logged in!", user : null};
+    res.status(401);
+    res.render("urls_error", templateVars);
   }
 });
 
@@ -131,7 +134,9 @@ app.get("/u/:shortURL", (req, res) => {
   if (urlDatabase[req.params.shortURL]) {
     res.redirect(urlDatabase[req.params.shortURL].longURL);
   } else {
-    res.status(404).send('Short URL does not exist!');
+    const templateVars = { message: "Short URL does not exist!", user : null};
+    res.status(404);
+    res.render("urls_error", templateVars);
   }
 });
 
@@ -174,7 +179,9 @@ app.post("/urls", (req, res) => {
 
     res.redirect("/urls/" + shortURL);
   } else {
-    res.status(401).send('Not logged in!');
+    const templateVars = { message: "not logged in! ", user : null};
+    res.status(401);
+    res.render("urls_error", templateVars);
   }
 });
 
@@ -188,10 +195,14 @@ app.post("/urls/:id",(req,res) => {
       urlDatabase[req.params.id].longURL = req.body.longURL;
       res.redirect("/urls/" + req.params.id)
     } else {
-      res.status(403).send('Not authorized to access this URL!');
+      const templateVars = { message: "Not authorized to access this URL!", user : null};
+    res.status(403);
+    res.render("urls_error", templateVars);
     }
   } else {
-    res.status(401).send('Not logged in!');
+    const templateVars = { message: "not logged in! ", user : null};
+    res.status(401);
+    res.render("urls_error", templateVars);
   }
 });
 
@@ -204,24 +215,34 @@ app.post("/urls/:id/delete",(req,res) => {
       delete urlDatabase[req.params.id];
       res.redirect('/urls');
     } else {
-      res.status(403).send('Not authorized to access this URL!');
+      const templateVars = { message: "Not authorized to access this URL!", user : null};
+      res.status(403);
+      res.render("urls_error", templateVars);
     }
   } else {
-    res.status(401).send('Not logged in!');
+    const templateVars = { message: "not logged in! ", user : null};
+    res.status(401);
+    res.render("urls_error", templateVars);
   }
 });
 
 app.post("/login",(req,res) => {
   if(req.body.email === "" && req.body.password === ""){
-    res.status(400).send('Missing both email and password!');
+    const templateVars = { message: "Missing both email and password!", user : null};
+    res.status(400);
+    res.render("urls_error", templateVars);
   }
 
   if(req.body.email === ""){
-    res.status(400).send('Missing email');
+    const templateVars = { message: "Missing email", user : null};
+    res.status(400);
+    res.render("urls_error", templateVars);
   }
 
   if(req.body.password === ""){
-    res.status(400).send('Missing password');
+    const templateVars = { message: "Missing password", user : null};
+    res.status(400);
+    res.render("urls_error", templateVars);
   }
 
   const user = userexist(req.body.email, req.body.password, users);
@@ -231,9 +252,13 @@ app.post("/login",(req,res) => {
     res.redirect('/urls');
   } else {
     if(getUserByEmail(req.body.email, users)){
-      res.status(403).send('Wrong Password');
+      const templateVars = { message: "Wrong Password", user : null};
+      res.status(403);
+      res.render("urls_error", templateVars);
     } else {
-      res.status(403).send('Email not found');
+      const templateVars = { message: "Email not found", user : null};
+      res.status(403);
+      res.render("urls_error", templateVars);
     }
   }
 });
@@ -245,22 +270,30 @@ app.post("/register",(req,res) => {
   const password = req.body.password;
 
   if(email === "" && password === "") {
-    res.status(400).send('Missing email and password!');
+    const templateVars = { message: "Missing both email and password!", user : null};
+    res.status(400);
+    res.render("urls_error", templateVars);
   }
 
   if (email === ""){
-    res.status(400).send('Missing email!');
+    const templateVars = { message: "Missing email", user : null};
+    res.status(400);
+    res.render("urls_error", templateVars);
   }
   
   if( password === "") {
-    res.status(400).send('Missing password!');
+    const templateVars = { message: "Missing password", user : null};
+    res.status(400);
+    res.render("urls_error", templateVars);
   }
 
   const isemailuser = getUserByEmail(email, users);
 
   if (isemailuser) {
     if (isemailuser.email === email) {
-      res.status(400).send('Email already exists');
+      const templateVars = { message: "Email already exists", user : null};
+      res.status(400);
+      res.render("urls_error", templateVars);
     }
   } else {
     users [userid] = {
