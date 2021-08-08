@@ -46,7 +46,14 @@ app.use(cookieSession({ name: 'session', keys: ['key1', 'key2'] }));
 
 app.get("/", (req, res) => {
   //res.send("Hello!");
-  res.redirect("/login");
+  const userid = req.session.user_id;
+  const user = users[userid];
+
+  if(user) {
+    res.redirect("/urls");
+  } else {
+    res.redirect("/login");
+  }
 });
 
 app.get("/urls.json", (req, res) => {
@@ -58,7 +65,7 @@ app.get("/urls", (req, res) => {
   const user = users[userid];
 
   if (user) {
-    const templateVars = { urls: urlsForUser(userid, users), user, userid };
+    const templateVars = { urls: urlsForUser(userid, urlDatabase), user, userid };
     res.render("urls_index", templateVars);
   } else {
     res.redirect("/login");
@@ -97,7 +104,7 @@ app.get("/login", (req,res) => {
   const userid = req.session.user_id;
 
   const user = users[userid];
-  console.log('user: ', user);
+
   if (user) {
     res.redirect('/urls');
   } else {
@@ -111,7 +118,7 @@ app.get("/urls/:shortURL", (req, res) => {
   const userid = req.session.user_id;
   const user = users[userid];
   if (user) {
-    const urlsList = urlsForUser(userid, users);
+    const urlsList = urlsForUser(userid, urlDatabase);
     if (urlsList[req.params.shortURL]) {
       const shortURL = req.params.shortURL;
       const templateVars = {
@@ -174,17 +181,26 @@ app.post("/register",(req,res) => {
   
   const userid = generateRandomString();
   const email = req.body.email;
-  const password = bcrypt.hashSync(req.body.password,10);
+  const password = req.body.password;
 
-  if (email === "" || password === "") {
-    res.status(400).send('Type here');
+  if(email === "" && password === "") {
+    res.status(400).send('Missing email and password!');
   }
 
+  if (email === ""){
+    res.status(400).send('Missing email!');
+  }
+  
+  if( password === "") {
+    res.status(400).send('Missing password!');
+  }
+
+  password = bcrypt.hashSync(password,10);
   const isemailuser = getUserByEmail(email, users);
 
   if (isemailuser) {
     if (isemailuser.email === email) {
-      res.status(400).send('email exist');
+      res.status(400).send('Email already exists');
     }
   } else {
     users [userid] = {
@@ -234,7 +250,7 @@ app.post("/urls/:shortURL/delete",(req,res) => {
   const userid = req.session.user_id;
   const user = users[userid];
   if (user) {
-    const urlsList = urlsForUser(userid, users);
+    const urlsList = urlsForUser(userid, urlDatabase);
     if (urlsList[req.params.shortURL]) {
       delete urlDatabase[req.params.shortURL];
     }
@@ -242,6 +258,19 @@ app.post("/urls/:shortURL/delete",(req,res) => {
     res.redirect('/urls');
   } else {
     res.redirect("/login");
+  }
+});
+
+app.post("/urls/:id",(req,res) => {
+  const userid = req.session.user_id;
+  const user = users[userid];
+
+  if(user){
+    const urlsList = urlsForUser(userid, urlDatabase);
+    if(urlsList[req.params.id]){
+      urlDatabase[req.params.id].longURL = req.body.longURL;
+    }
+    res.redirect("/urls/" + req.params.id)
   }
 });
 
