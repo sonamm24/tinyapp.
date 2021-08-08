@@ -60,18 +60,6 @@ app.get("/urls.json", (req, res) => {
   res.json(urlDatabase);
 });
 
-app.get("/urls", (req, res) => {
-  const userid = req.session.user_id;
-  const user = users[userid];
-
-  if (user) {
-    const templateVars = { urls: urlsForUser(userid, urlDatabase), user, userid };
-    res.render("urls_index", templateVars);
-  } else {
-    res.redirect("/login");
-  }
-});
-
 app.get("/set", (req, res) => {
   const a = 1;
   res.send(`a = ${a}`);
@@ -84,6 +72,18 @@ app.get("/fetch", (req, res) => {
 
 app.get("/hello", (req, res) => {
   res.send("<html><body>Hello <b>World</b></body></html>\n");
+});
+
+app.get("/urls", (req, res) => {
+  const userid = req.session.user_id;
+  const user = users[userid];
+
+  if (user) {
+    const templateVars = { urls: urlsForUser(userid, urlDatabase), user };
+    res.render("urls_index", templateVars);
+  } else {
+    res.status(401).send('Not logged in!');
+  }
 });
 
 app.get("/urls/new", (req, res) => {
@@ -100,40 +100,30 @@ app.get("/urls/new", (req, res) => {
 
 });
 
-app.get("/login", (req,res) => {
-  const userid = req.session.user_id;
-
-  const user = users[userid];
-
-  if (user) {
-    res.redirect('/urls');
-  } else {
-    const templateVars = { username: req.session ? req.session["username"] : "", user,userid};
-    res.render("urls_login", templateVars);
-  }
- 
-});
-
-app.get("/urls/:shortURL", (req, res) => {
+app.get("/urls/:id", (req, res) => {
   const userid = req.session.user_id;
   const user = users[userid];
   if (user) {
-    const urlsList = urlsForUser(userid, urlDatabase);
-    if (urlsList[req.params.shortURL]) {
-      const shortURL = req.params.shortURL;
-      const templateVars = {
-        username: req.session ? req.session["username"] : "",
-        shortURL: shortURL,
-        longURL: urlDatabase[shortURL].longURL,
-        user,
-        userid
-      };
-      res.render("urls_show", templateVars);
+    if(urlDatabase[res.params.id]){
+      const urlsList = urlsForUser(userid, urlDatabase);
+      if (urlsList[req.params.id]) {
+        const shortURL = req.params.id;
+        const templateVars = {
+          username: req.session ? req.session["username"] : "",
+          shortURL: shortURL,
+          longURL: urlDatabase[shortURL].longURL,
+          user,
+          userid
+        };
+        res.render("urls_show", templateVars);
+      } else {
+        res.status(403).send('Not authorized to access this URL!');
+      }
     } else {
-      res.redirect("/urls");
+      res.status(404).send('URL does not exist!');
     }
   } else {
-    res.redirect("/login");
+    res.status(401).send('Not logged in!');
   }
 });
 
@@ -141,7 +131,19 @@ app.get("/u/:shortURL", (req, res) => {
   if (urlDatabase[req.params.shortURL]) {
     res.redirect(urlDatabase[req.params.shortURL].longURL);
   } else {
-    res.status(404).send('Long URL not found!');
+    res.status(404).send('Short URL does not exist!');
+  }
+});
+
+app.get("/login", (req,res) => {
+  const userid = req.session.user_id;
+  const user = users[userid];
+
+  if (user) {
+    res.redirect('/urls');
+  } else {
+    const templateVars = { username: req.session ? req.session["username"] : "", user,userid};
+    res.render("urls_login", templateVars);
   }
 });
 
@@ -154,7 +156,6 @@ app.get("/register", (req, res) => {
     const templateVars = { username: req.session ? req.session["username"] : "", user,userid};
     res.render("urls_register", templateVars);
   }
- 
 });
 
 ///////APP POST ROUTES/////
@@ -173,7 +174,67 @@ app.post("/urls", (req, res) => {
 
     res.redirect("/urls/" + shortURL);
   } else {
-    res.send("Error not logged in!");
+    res.status(401).send('Not logged in!');
+  }
+});
+
+app.post("/urls/:id",(req,res) => {
+  const userid = req.session.user_id;
+  const user = users[userid];
+
+  if(user){
+    const urlsList = urlsForUser(userid, urlDatabase);
+    if(urlsList[req.params.id]){
+      urlDatabase[req.params.id].longURL = req.body.longURL;
+      res.redirect("/urls/" + req.params.id)
+    } else {
+      res.status(403).send('Not authorized to access this URL!');
+    }
+  } else {
+    res.status(401).send('Not logged in!');
+  }
+});
+
+app.post("/urls/:id/delete",(req,res) => {
+  const userid = req.session.user_id;
+  const user = users[userid];
+  if (user) {
+    const urlsList = urlsForUser(userid, urlDatabase);
+    if (urlsList[req.params.id]) {
+      delete urlDatabase[req.params.id];
+      res.redirect('/urls');
+    } else {
+      res.status(403).send('Not authorized to access this URL!');
+    }
+  } else {
+    res.status(401).send('Not logged in!');
+  }
+});
+
+app.post("/login",(req,res) => {
+  if(req.body.email === "" && req.body.password === ""){
+    res.status(400).send('Missing both email and password!');
+  }
+
+  if(req.body.email === ""){
+    res.status(400).send('Missing email');
+  }
+
+  if(req.body.password === ""){
+    res.status(400).send('Missing password');
+  }
+
+  const user = userexist(req.body.email, req.body.password, users);
+
+  if (user) {
+    req.session['user_id'] = user.id;
+    res.redirect('/urls');
+  } else {
+    if(getUserByEmail(req.body.email, users)){
+      res.status(403).send('Wrong Password');
+    } else {
+      res.status(403).send('Email not found');
+    }
   }
 });
 
@@ -195,7 +256,6 @@ app.post("/register",(req,res) => {
     res.status(400).send('Missing password!');
   }
 
-  password = bcrypt.hashSync(password,10);
   const isemailuser = getUserByEmail(email, users);
 
   if (isemailuser) {
@@ -206,7 +266,7 @@ app.post("/register",(req,res) => {
     users [userid] = {
       id :  userid,
       email : email,
-      password : password
+      password : bcrypt.hashSync(password,10)
     };
 
     req.session.user_id = userid;
@@ -214,64 +274,9 @@ app.post("/register",(req,res) => {
   }
 });
 
-app.post("/login",(req,res) => {
-  if(req.body.email === "" && req.body.password === ""){
-    res.status(403).send('Missing both email and password!');
-  }
-
-  if(req.body.email === ""){
-    res.status(403).send('Missing email');
-  }
-
-  if(req.body.password === ""){
-    res.status(403).send('Missing password');
-  }
-
-  const user = userexist(req.body.email, req.body.password, users);
-
-  if (user) {
-    req.session['user_id'] = user.id;
-    res.redirect('/urls');
-  } else {
-    if(getUserByEmail(req.body.email, users)){
-      res.status(403).send('Wrong Password');
-    } else {
-      res.status(403).send('Email not found');
-    }
-  }
-});
-
 app.post("/logout",(req,res) => {
   req.session['user_id'] = null;
   res.redirect('/urls');
-});
-
-app.post("/urls/:shortURL/delete",(req,res) => {
-  const userid = req.session.user_id;
-  const user = users[userid];
-  if (user) {
-    const urlsList = urlsForUser(userid, urlDatabase);
-    if (urlsList[req.params.shortURL]) {
-      delete urlDatabase[req.params.shortURL];
-    }
-
-    res.redirect('/urls');
-  } else {
-    res.redirect("/login");
-  }
-});
-
-app.post("/urls/:id",(req,res) => {
-  const userid = req.session.user_id;
-  const user = users[userid];
-
-  if(user){
-    const urlsList = urlsForUser(userid, urlDatabase);
-    if(urlsList[req.params.id]){
-      urlDatabase[req.params.id].longURL = req.body.longURL;
-    }
-    res.redirect("/urls/" + req.params.id)
-  }
 });
 
 ///////APP PORT LISTENING FUNCTIONS////////
