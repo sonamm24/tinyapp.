@@ -192,12 +192,13 @@ app.post("/urls/:id",(req,res) => {
   if(user){
     const urlsList = urlsForUser(userid, urlDatabase);
     if(urlsList[req.params.id]){
+      //console.log(urlDatabase[req.params.id]);
       urlDatabase[req.params.id].longURL = req.body.longURL;
       res.redirect("/urls/" + req.params.id)
     } else {
       const templateVars = { message: "Not authorized to access this URL!", user : null};
-    res.status(403);
-    res.render("urls_error", templateVars);
+      res.status(403);
+      res.render("urls_error", templateVars);
     }
   } else {
     const templateVars = { message: "not logged in! ", user : null};
