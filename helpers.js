@@ -46,7 +46,6 @@ const generateRandomString = function() {
     let character = String.fromCharCode(randNum);
     result += character;
   }
-  console.log(result);
   return result;
 };
 
