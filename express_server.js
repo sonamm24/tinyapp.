@@ -78,8 +78,8 @@ app.get("/urls", (req, res) => {
     res.render("urls_index", templateVars);
   } else {
     const templateVars = { message: "not logged in! ", user : null};
-    res.status(401);
-    res.render("urls_error", templateVars);
+   
+    res.status(401).render("urls_error", templateVars);
   }
 });
 
@@ -115,18 +115,18 @@ app.get("/urls/:id", (req, res) => {
         res.render("urls_show", templateVars);
       } else {
         const templateVars = { message: "Not authorized to access this URL!", user : null};
-    res.status(403);
-    res.render("urls_error", templateVars);
+    
+        res.status(403).render("urls_error", templateVars);
       }
     } else {
       const templateVars = { message: "URL does not exist!", user : null};
-      res.status(404);
-      res.render("urls_error", templateVars);
+     
+      res.status(404).render("urls_error", templateVars);
     }
   } else {
     const templateVars = { message: "not logged in!", user : null};
-    res.status(401);
-    res.render("urls_error", templateVars);
+   
+    res.status(401).render("urls_error", templateVars);
   }
 });
 
@@ -135,8 +135,8 @@ app.get("/u/:shortURL", (req, res) => {
     res.redirect(urlDatabase[req.params.shortURL].longURL);
   } else {
     const templateVars = { message: "Short URL does not exist!", user : null};
-    res.status(404);
-    res.render("urls_error", templateVars);
+    
+    res.status(404).render("urls_error", templateVars);
   }
 });
 
@@ -180,8 +180,8 @@ app.post("/urls", (req, res) => {
     res.redirect("/urls/" + shortURL);
   } else {
     const templateVars = { message: "not logged in! ", user : null};
-    res.status(401);
-    res.render("urls_error", templateVars);
+    
+    res.status(401).render("urls_error", templateVars);
   }
 });
 
@@ -197,13 +197,13 @@ app.post("/urls/:id",(req,res) => {
       res.redirect("/urls/" + req.params.id)
     } else {
       const templateVars = { message: "Not authorized to access this URL!", user : null};
-      res.status(403);
-      res.render("urls_error", templateVars);
+      
+      res.status(403).render("urls_error", templateVars);
     }
   } else {
     const templateVars = { message: "not logged in! ", user : null};
-    res.status(401);
-    res.render("urls_error", templateVars);
+    
+    res.status(401).render("urls_error", templateVars);
   }
 });
 
@@ -217,33 +217,36 @@ app.post("/urls/:id/delete",(req,res) => {
       res.redirect('/urls');
     } else {
       const templateVars = { message: "Not authorized to access this URL!", user : null};
-      res.status(403);
-      res.render("urls_error", templateVars);
+      
+      res.status(403).render("urls_error", templateVars);
     }
   } else {
     const templateVars = { message: "not logged in! ", user : null};
-    res.status(401);
-    res.render("urls_error", templateVars);
+    
+    res.status(401).render("urls_error", templateVars);
   }
 });
 
 app.post("/login",(req,res) => {
   if(req.body.email === "" && req.body.password === ""){
     const templateVars = { message: "Missing both email and password!", user : null};
-    res.status(400);
-    res.render("urls_error", templateVars);
+    
+    res.status(400).render("urls_error", templateVars);
+    return;
   }
 
   if(req.body.email === ""){
     const templateVars = { message: "Missing email", user : null};
-    res.status(400);
-    res.render("urls_error", templateVars);
+    
+    res.status(400).render("urls_error", templateVars);
+    return;
   }
 
   if(req.body.password === ""){
     const templateVars = { message: "Missing password", user : null};
-    res.status(400);
-    res.render("urls_error", templateVars);
+   
+    res.status(400).render("urls_error", templateVars);
+    return;
   }
 
   const user = userexist(req.body.email, req.body.password, users);
@@ -258,8 +261,8 @@ app.post("/login",(req,res) => {
       res.render("urls_error", templateVars);
     } else {
       const templateVars = { message: "Email not found", user : null};
-      res.status(403);
-      res.render("urls_error", templateVars);
+      
+      res.status(403).render("urls_error", templateVars);
     }
   }
 });
@@ -272,20 +275,23 @@ app.post("/register",(req,res) => {
 
   if(email === "" && password === "") {
     const templateVars = { message: "Missing both email and password!", user : null};
-    res.status(400);
-    res.render("urls_error", templateVars);
+    
+    res.status(400).render("urls_error", templateVars);
+    return;
   }
 
   if (email === ""){
     const templateVars = { message: "Missing email", user : null};
-    res.status(400);
-    res.render("urls_error", templateVars);
+    
+    res.status(400).render("urls_error", templateVars);
+    return;
   }
   
   if( password === "") {
     const templateVars = { message: "Missing password", user : null};
-    res.status(400);
-    res.render("urls_error", templateVars);
+    
+    res.status(400).render("urls_error", templateVars);
+    return;
   }
 
   const isemailuser = getUserByEmail(email, users);
@@ -293,8 +299,8 @@ app.post("/register",(req,res) => {
   if (isemailuser) {
     if (isemailuser.email === email) {
       const templateVars = { message: "Email already exists", user : null};
-      res.status(400);
-      res.render("urls_error", templateVars);
+      
+      res.status(400).render("urls_error", templateVars);
     }
   } else {
     users [userid] = {
